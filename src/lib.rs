@@ -103,51 +103,110 @@ pub fn search_procfs_auxv(aux_types: &[c_ulong])
 /// pair is the 'type' and the second is the 'value'.
 fn search_auxv_path<B: ByteOrder>(path: &Path, aux_types: &[c_ulong])
         -> Result<ProcfsAuxVals, ProcfsAuxvError> {
-    let mut input = File::open(path)
+    let mut result = HashMap::<c_ulong, c_ulong>::new();
+
+    for r in iterate_path::<B>(path)? {
+
+        let pair = match r {
+            Ok(p) => p,
+            Err(e) => return Err(e)
+        };
+
+        if aux_types.contains(&pair.t) {
+            let _ = result.insert(pair.t, pair.v);
+        }
+    }
+
+    return Ok(result);
+}
+
+struct ProcfsAuxvIter<B: ByteOrder, R: Read> {
+    pair_size: usize,
+    buf: Vec<u8>,
+    input: BufReader<R>,
+    keep_going: bool,
+    phantom_byteorder: std::marker::PhantomData<B>
+}
+
+#[derive(Debug, PartialEq)]
+struct ProcfsAuxvPair {
+    // can't be "type" because it's reserved
+    /// auxv type
+    pub t: c_ulong,
+    /// auxv value
+    pub v: c_ulong,
+}
+
+fn iterate_path<B: ByteOrder>(path: &Path)
+                                  -> Result<ProcfsAuxvIter<B, File>, ProcfsAuxvError> {
+    let input = File::open(path)
         .map_err(|_| ProcfsAuxvError::IoError)
         .map(|f| BufReader::new(f))?;
 
-    let ulong_size = std::mem::size_of::<c_ulong>();
-    let mut buf: Vec<u8> = Vec::with_capacity(2 * ulong_size);
-    let mut result = HashMap::<c_ulong, c_ulong>::new();
+    let pair_size = 2 * std::mem::size_of::<c_ulong>();
+    let buf: Vec<u8> = Vec::with_capacity(pair_size);
 
-    loop {
-        buf.clear();
+    Ok(ProcfsAuxvIter::<B, File> {
+        pair_size: pair_size,
+        buf: buf,
+        input: input,
+        keep_going: true,
+        phantom_byteorder: std::marker::PhantomData
+    })
+}
+
+
+impl<B: ByteOrder, R: Read> Iterator for ProcfsAuxvIter<B, R> {
+    type Item = Result<ProcfsAuxvPair, ProcfsAuxvError>;
+    fn next(&mut self) -> Option<Self::Item> {
+        if !self.keep_going {
+            return None
+        }
+        // assume something will fail
+        self.keep_going = false;
+
+        self.buf.clear();
         // fill vec so we can slice into it
-        for _ in 0 .. 2 * ulong_size {
-            buf.push(0);
+        for _ in 0 .. self.pair_size {
+            self.buf.push(0);
         }
 
         let mut read_bytes: usize = 0;
-        while read_bytes < 2 * ulong_size {
+        while read_bytes < self.pair_size {
             // read exactly buf's len of bytes.
-            match input.read(&mut buf[read_bytes..]) {
+            match self.input.read(&mut self.buf[read_bytes..]) {
                 Ok(n) => {
                     if n == 0 {
                         // should not hit EOF before AT_NULL
-                        return Err(ProcfsAuxvError::InvalidFormat)
+                        return Some(Err(ProcfsAuxvError::InvalidFormat))
                     }
 
                     read_bytes += n;
                 }
-                Err(_) => return Err(ProcfsAuxvError::IoError)
+                Err(_) => return Some(Err(ProcfsAuxvError::IoError))
             }
         }
 
-        let mut reader = &buf[..];
-        let found_aux_type = read_long::<B>(&mut reader)
-            .map_err(|_| ProcfsAuxvError::InvalidFormat)?;
-        let aux_val = read_long::<B>(&mut reader)
-            .map_err(|_| ProcfsAuxvError::InvalidFormat)?;
-
-        if aux_types.contains(&found_aux_type) {
-            let _ = result.insert(found_aux_type, aux_val);
-        }
+        let mut reader = &self.buf[..];
+        let found_aux_type = match read_long::<B>(&mut reader) {
+            Ok(x) => x,
+            Err(_) => return Some(Err(ProcfsAuxvError::InvalidFormat))
+        };
+        let aux_val = match read_long::<B>(&mut reader) {
+            Ok(x) => x,
+            Err(_) => return Some(Err(ProcfsAuxvError::InvalidFormat))
+        };
 
         // AT_NULL (0) signals the end of auxv
         if found_aux_type == 0 {
-            return Ok(result);
+            return None;
         }
+
+        self.keep_going = true;
+        Some(Ok(ProcfsAuxvPair {
+            t: found_aux_type,
+            v: aux_val
+        }))
     }
 }
 
@@ -167,7 +226,7 @@ mod tests {
     use super::ProcfsAuxvError;
     #[cfg(target_os="linux")]
     use super::search_procfs_auxv;
-    use super::{search_auxv_path, AT_HWCAP, AT_HWCAP2};
+    use super::{search_auxv_path, AT_HWCAP, AT_HWCAP2, iterate_path, ProcfsAuxvPair};
 
     use byteorder::LittleEndian;
     use libc::c_ulong;
@@ -279,6 +338,98 @@ mod tests {
         let path = Path::new("src/test-data/linux-x64-i7-6850k-mangled-truncated-entry.auxv");
         assert_eq!(ProcfsAuxvError::InvalidFormat,
             search_auxv_path::<LittleEndian>(path, &[555555555]).unwrap_err());
+    }
+
+    #[test]
+    #[cfg(any(feature = "auxv-64bit-ulong",
+    all(autodetect_c_ulong_64, not(feature = "auxv-32bit-ulong"))))]
+    fn test_iterate_auxv_real_linux() {
+        let path = Path::new("src/test-data/linux-x64-i7-6850k.auxv");
+        let mut iter = iterate_path::<LittleEndian>(path).unwrap();
+        // x86 AT_SYSINFO_EHDR
+        assert_eq!(ProcfsAuxvPair { t: 33, v: 140724395515904 }, iter.next().unwrap().unwrap());
+        // AT_HWCAP
+        assert_eq!(ProcfsAuxvPair { t: 16, v: 3219913727 }, iter.next().unwrap().unwrap());
+        // AT_PAGESZ
+        assert_eq!(ProcfsAuxvPair { t: 6, v: 4096 }, iter.next().unwrap().unwrap());
+        // AT_CLKTCK
+        assert_eq!(ProcfsAuxvPair { t: 17, v: 100 }, iter.next().unwrap().unwrap());
+        // AT_PHDR
+        assert_eq!(ProcfsAuxvPair { t: 3, v: 4194368 }, iter.next().unwrap().unwrap());
+        // AT_PHENT
+        assert_eq!(ProcfsAuxvPair { t: 4, v: 56 }, iter.next().unwrap().unwrap());
+        // AT_PHNUM
+        assert_eq!(ProcfsAuxvPair { t: 5, v: 10 }, iter.next().unwrap().unwrap());
+        // AT_BASE
+        assert_eq!(ProcfsAuxvPair { t: 7, v: 139881368498176 }, iter.next().unwrap().unwrap());
+        // AT_FLAGS
+        assert_eq!(ProcfsAuxvPair { t: 8, v: 0 }, iter.next().unwrap().unwrap());
+        // AT_ENTRY
+        assert_eq!(ProcfsAuxvPair { t: 9, v: 4204128 }, iter.next().unwrap().unwrap());
+        // AT_UID
+        assert_eq!(ProcfsAuxvPair { t: 11, v: 1000 }, iter.next().unwrap().unwrap());
+        // AT_EUID
+        assert_eq!(ProcfsAuxvPair { t: 12, v: 1000 }, iter.next().unwrap().unwrap());
+        // AT_GID
+        assert_eq!(ProcfsAuxvPair { t: 13, v: 1000 }, iter.next().unwrap().unwrap());
+        // AT_EGID
+        assert_eq!(ProcfsAuxvPair { t: 14, v: 1000 }, iter.next().unwrap().unwrap());
+        // AT_SECURE
+        assert_eq!(ProcfsAuxvPair { t: 23, v: 0 }, iter.next().unwrap().unwrap());
+        // AT_RANDOM
+        assert_eq!(ProcfsAuxvPair { t: 25, v: 140724393842889 }, iter.next().unwrap().unwrap());
+        // AT_EXECFN
+        assert_eq!(ProcfsAuxvPair { t: 31, v: 140724393852911 }, iter.next().unwrap().unwrap());
+        // AT_PLATFORM
+        assert_eq!(ProcfsAuxvPair { t: 15, v: 140724393842905 }, iter.next().unwrap().unwrap());
+        assert_eq!(None, iter.next());
+    }
+
+    #[test]
+    #[cfg(any(feature = "auxv-64bit-ulong",
+    all(autodetect_c_ulong_64, not(feature = "auxv-32bit-ulong"))))]
+    fn test_iterate_auxv_real_linux_no_trailing_null() {
+        let path = Path::new("src/test-data/linux-x64-i7-6850k-mangled-no-trailing-null.auxv");
+        let mut iter = iterate_path::<LittleEndian>(path).unwrap();
+        assert_eq!(ProcfsAuxvPair { t: 33, v: 140724395515904 }, iter.next().unwrap().unwrap());
+        // skip the middle ones
+        let mut skipped = iter.skip(16);
+
+        assert_eq!(ProcfsAuxvPair { t: 15, v: 140724393842905 }, skipped.next().unwrap().unwrap());
+        assert_eq!(ProcfsAuxvError::InvalidFormat, skipped.next().unwrap().unwrap_err());
+        assert_eq!(None, skipped.next());
+    }
+
+
+    #[test]
+    #[cfg(any(feature = "auxv-64bit-ulong",
+    all(autodetect_c_ulong_64, not(feature = "auxv-32bit-ulong"))))]
+    fn test_iterate_auxv_real_linux_no_value_in_trailing_null() {
+        let path = Path::new("src/test-data/linux-x64-i7-6850k-mangled-no-value-in-trailing-null.auxv");
+        let mut iter = iterate_path::<LittleEndian>(path).unwrap();
+        assert_eq!(ProcfsAuxvPair { t: 33, v: 140724395515904 }, iter.next().unwrap().unwrap());
+        // skip the middle ones
+        let mut skipped = iter.skip(16);
+
+        assert_eq!(ProcfsAuxvPair { t: 15, v: 140724393842905 }, skipped.next().unwrap().unwrap());
+        assert_eq!(ProcfsAuxvError::InvalidFormat, skipped.next().unwrap().unwrap_err());
+        assert_eq!(None, skipped.next());
+    }
+
+    #[test]
+    #[cfg(any(feature = "auxv-64bit-ulong",
+    all(autodetect_c_ulong_64, not(feature = "auxv-32bit-ulong"))))]
+    fn test_iterate_auxv_real_linux_truncated_entry() {
+        let path = Path::new("src/test-data/linux-x64-i7-6850k-mangled-truncated-entry.auxv");
+        let mut iter = iterate_path::<LittleEndian>(path).unwrap();
+        // x86 AT_SYSINFO_EHDR
+        assert_eq!(ProcfsAuxvPair { t: 33, v: 140724395515904 }, iter.next().unwrap().unwrap());
+        // skip the middle ones, one fewer this time
+        let mut skipped = iter.skip(15);
+        assert_eq!(ProcfsAuxvPair { t: 31, v: 140724393852911 }, skipped.next().unwrap().unwrap());
+        // entry for type 15 is missing its value
+        assert_eq!(ProcfsAuxvError::InvalidFormat, skipped.next().unwrap().unwrap_err());
+        assert_eq!(None, skipped.next());
     }
 
 }
