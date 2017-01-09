@@ -1,3 +1,5 @@
+![](https://img.shields.io/crates/v/auxv.svg)
+
 ### Just what is the auxiliary vector?
 
 The auxiliary vector is some memory near the start of a running Linux program's stack. Specifically, it's a sequence of pairs of `unsigned long`s, with each pair comprising a *type* and a *value*. It is mostly there to help things like runtime linkers, but sometimes it's useful for other reasons.
@@ -14,6 +16,12 @@ More info on the auxiliary vector:
 - See `fs/binfmt_elf.c` in the Linux source for how the vector is generated
 
 ### OK, how do I use it it?
+
+First, add to your `Cargo.toml`:
+
+```toml
+auxv = "0.1.0"
+```
 
 There are two ways to access the auxiliary vector:
 
