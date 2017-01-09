@@ -25,7 +25,7 @@ auxv = "0.1.0"
 
 There are two ways to access the auxiliary vector:
 
-- [`getauxval(3)`](https://linux.die.net/man/3/getauxval) is a glibc-only function for accessing the Linux auxiliary vector. Since it is a non-standard extension, if you're not using glibc (musl, uclibc, etc), this will not be available. (Also, since we're talking about glibc issues, if you're on glibc older than 2.19, glibc is unable to express the concept of "not found" and will instead "find" the value 0.)
+- [`getauxval(3)`](https://linux.die.net/man/3/getauxval) is a glibc-only function for accessing the Linux auxiliary vector. It is available from glibc 2.16 onwards. Since it is a non-standard extension, if you're not using glibc (musl, uclibc, etc), this will not be available. (Also, since we're talking about glibc issues, if you're on glibc older than 2.19, glibc is unable to express the concept of "not found" and will instead "find" the value 0.)
 - `/proc/self/auxv` exposes the contents of the aux vector, but the OS may be configured to not allow access to it, so that won't always work either.
 
 This library exposes both of them, so chances are pretty good that at least one of them will work in any given host. For most users, it would be best practice to try the `getauxval` way first, and then try the procfs way if `getauxval` is not available at runtime. Note that due to the aforementioned bug in glibc older than 2.19 you may get a spurious `0` as a successfully found value, so if that's a problem in your environment, you will probably need to do some experimentation to find the best fallback logic.
@@ -103,3 +103,21 @@ cargo test --target i686-unknown-linux-gnu --feature auxv-32bit-ulong
 ```
 
 You should see different tests running in each case.
+
+### Testing weak linking with ancient glibc
+
+This isn't worth the hassle to automate, but it's not hard with some help from Vagrant.
+
+- Run `vagrant up` to spin up a VM of an old Debian box.
+- `vagrant ssh` to shell in once it's booted
+- `cd /vagrant && cargo test`
+- You should see two test failures because `getauxval` is not available like this:
+
+```
+---- test_getauxv_hwcap_linux_doesnt_find_bogus_type stdout ----
+        thread 'test_getauxv_hwcap_linux_doesnt_find_bogus_type' panicked at 'assertion failed: `(left == right)` (left: `NotFound`, right: `FunctionNotAvailable`)', tests/native_getauxval_tests.rs:26
+note: Run with `RUST_BACKTRACE=1` for a backtrace.
+
+---- test_getauxv_hwcap_linux_finds_hwcap stdout ----
+        thread 'test_getauxv_hwcap_linux_finds_hwcap' panicked at 'called `Result::unwrap()` on an `Err` value: FunctionNotAvailable', ../src/libcore/result.rs:837
+```

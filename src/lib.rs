@@ -48,6 +48,8 @@ impl GetauxvalProvider for NotFoundGetauxvalProvider {
 /// Unfortunately, prior to glibc 2.19, getauxval() returns 0 without
 /// setting `errno` if the type is not found, so on such old systems
 /// this will return `Ok(0)` rather than `Err(GetauxvalError::NotFound)`.
+/// `getauxval` was first exposed in glibc 2.16 (released in 2012), so
+/// ancient glibc systems will sto;; get `FunctionNotAvailable`.
 #[cfg(target_os="linux")]
 pub struct NativeGetauxvalProvider {}
 
