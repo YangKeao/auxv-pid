@@ -28,6 +28,35 @@ pub enum GetauxvalError {
     UnknownError
 }
 
+/// On Linux, you will probably want `NativeGetauxvalProvider`. If you're not
+/// on Linux but want to use the same `getauxv`-based logic, you could
+/// conditionally use `NotFoundGetauxvalProvider` instead.
+///
+/// ```
+/// use auxv::{GetauxvalProvider, AT_HWCAP};
+/// #[cfg(target_os="linux")]
+/// use auxv::NativeGetauxvalProvider;
+/// #[cfg(not(target_os="linux"))]
+/// use auxv::NotFoundGetauxvalProvider;
+///
+/// fn do_stuff_with_getauxval<G: GetauxvalProvider>(g: G) {
+///     // naturally, don't unwrap() in real code
+///     let hwcap = g.getauxval(AT_HWCAP).unwrap();
+///     // poke around in hwcap, etc
+/// }
+///
+/// #[cfg(target_os="linux")]
+/// fn detect_hardware() {
+///     let getauxval = NativeGetauxvalProvider {};
+///     do_stuff_with_getauxval(getauxval);
+/// }
+///
+/// #[cfg(not(target_os="linux"))]
+/// fn detect_hardware() {
+///     let getauxval = NotFoundGetauxvalProvider {};
+///     do_stuff_with_getauxval(getauxval);
+/// }
+/// ```
 pub trait GetauxvalProvider {
     /// Look up an entry in the auxiliary vector. See getauxval(3) in glibc.
     fn getauxval(&self, auxv_type: c_ulong) -> Result<c_ulong, GetauxvalError>;
@@ -91,12 +120,41 @@ pub enum ProcfsAuxvError {
 
 /// Read from the procfs auxv file and look for the specified types.
 ///
+/// ```
+/// use auxv::{search_procfs_auxv, AT_HWCAP};
+///
+/// // use real error handling in production code
+/// let data = search_procfs_auxv(&[AT_HWCAP]).unwrap();
+/// println!("Your HWCAP is {}", data.get(&AT_HWCAP).unwrap());
+/// ```
+///
 /// aux_types: the types to look for
 /// returns a map of types to values, only including entries for types that were
 /// requested that also had values in the aux vector
 pub fn search_procfs_auxv(aux_types: &[c_ulong])
         -> Result<ProcfsAuxVals, ProcfsAuxvError> {
     search_auxv_path::<NativeEndian>(&Path::new("/proc/self/auxv"), aux_types)
+}
+
+/// Iterate over the contents of the procfs auxv file as `ProcfsAuxvPair` pairs.
+///
+///
+/// ```
+/// use auxv::{iterate_procfs_auxv, AT_HWCAP};
+///
+/// // use real error handling in production code
+/// let iter = iterate_procfs_auxv().unwrap();
+///
+/// for r in iter {
+///     let pair = r.unwrap();
+///     println!("{} = {}", pair.t, pair.v);
+/// }
+/// ```
+/// 
+/// Note that the type iterated over is also a Result because further I/O errors
+/// could occur at any time.
+pub fn iterate_procfs_auxv() -> Result<ProcfsAuxvIter<NativeEndian, File>, ProcfsAuxvError> {
+    iterate_path::<NativeEndian>(&Path::new("/proc/self/auxv"))
 }
 
 /// input: pairs of unsigned longs, as in /proc/self/auxv. The first of each
@@ -120,7 +178,7 @@ fn search_auxv_path<B: ByteOrder>(path: &Path, aux_types: &[c_ulong])
     return Ok(result);
 }
 
-struct ProcfsAuxvIter<B: ByteOrder, R: Read> {
+pub struct ProcfsAuxvIter<B: ByteOrder, R: Read> {
     pair_size: usize,
     buf: Vec<u8>,
     input: BufReader<R>,
@@ -129,7 +187,7 @@ struct ProcfsAuxvIter<B: ByteOrder, R: Read> {
 }
 
 #[derive(Debug, PartialEq)]
-struct ProcfsAuxvPair {
+pub struct ProcfsAuxvPair {
     // can't be "type" because it's reserved
     /// auxv type
     pub t: c_ulong,
@@ -223,10 +281,10 @@ mod tests {
     use std::path::Path;
     #[cfg(any(feature = "auxv-64bit-ulong",
     all(autodetect_c_ulong_64, not(feature = "auxv-32bit-ulong"))))]
-    use super::ProcfsAuxvError;
+    use super::{iterate_path, ProcfsAuxvError, ProcfsAuxvPair};
     #[cfg(target_os="linux")]
-    use super::search_procfs_auxv;
-    use super::{search_auxv_path, AT_HWCAP, AT_HWCAP2, iterate_path, ProcfsAuxvPair};
+    use super::{search_procfs_auxv, iterate_procfs_auxv};
+    use super::{search_auxv_path, AT_HWCAP, AT_HWCAP2};
 
     use byteorder::LittleEndian;
     use libc::c_ulong;
@@ -240,10 +298,22 @@ mod tests {
 
     #[test]
     #[cfg(target_os="linux")]
-    fn test_real_auxv_finds_hwcap() {
+    fn test_real_search_procfs_finds_hwcap() {
         let data = search_procfs_auxv(&[AT_HWCAP]).unwrap();
         assert!(*data.get(&AT_HWCAP).unwrap() > 0);
     }
+
+    #[test]
+    #[cfg(target_os="linux")]
+    fn test_real_iterate_procfs_finds_hwcap() {
+        let iter = iterate_procfs_auxv().unwrap();
+
+        assert_eq!(1, iter.map(|r| r.unwrap())
+            .filter(|p| p.t == AT_HWCAP)
+            .count());
+    }
+
+
 
     #[test]
     #[cfg(any(feature = "auxv-64bit-ulong",
