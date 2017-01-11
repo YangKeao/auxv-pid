@@ -123,9 +123,11 @@ pub enum ProcfsAuxvError {
 /// ```
 /// use auxv::{search_procfs_auxv, AT_HWCAP};
 ///
-/// // use real error handling in production code
-/// let data = search_procfs_auxv(&[AT_HWCAP]).unwrap();
-/// println!("Your HWCAP is {}", data.get(&AT_HWCAP).unwrap());
+/// fn print_hwcap() {
+///     // use real error handling in production code
+///     let data = search_procfs_auxv(&[AT_HWCAP]).unwrap();
+///     println!("Your HWCAP is {}", data.get(&AT_HWCAP).unwrap());
+/// }
 /// ```
 ///
 /// aux_types: the types to look for
@@ -140,14 +142,16 @@ pub fn search_procfs_auxv(aux_types: &[c_ulong])
 ///
 ///
 /// ```
-/// use auxv::{iterate_procfs_auxv, AT_HWCAP};
+/// use auxv::{iterate_procfs_auxv};
 ///
-/// // use real error handling in production code
-/// let iter = iterate_procfs_auxv().unwrap();
+/// fn print_auxv() {
+///     // use real error handling in production code
+///     let iter = iterate_procfs_auxv().unwrap();
 ///
-/// for r in iter {
-///     let pair = r.unwrap();
-///     println!("{} = {}", pair.t, pair.v);
+///     for r in iter {
+///         let pair = r.unwrap();
+///         println!("{} = {}", pair.t, pair.v);
+///     }
 /// }
 /// ```
 /// 
