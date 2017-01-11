@@ -84,3 +84,5 @@ note: Run with `RUST_BACKTRACE=1` for a backtrace.
 ---- test_getauxv_hwcap_linux_finds_hwcap stdout ----
         thread 'test_getauxv_hwcap_linux_finds_hwcap' panicked at 'called `Result::unwrap()` on an `Err` value: FunctionNotAvailable', ../src/libcore/result.rs:837
 ```
+
+You can run `vagrant halt` to shut down the VM or `vagrant destroy` to delete it entirely.
