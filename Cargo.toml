@@ -1,9 +1,9 @@
 [package]
 name = "auxv"
-version = "0.1.0"
+version = "0.2.0"
 
 authors = ["Marshall Pierce <marshall@mpierce.org>"]
-description = "Access the Linux auxiliary vector (aka auxv or auxval)"
+description = "Access the Linux auxiliary vector (aka auxv or auxval)."
 documentation = "https://bitbucket.org/marshallpierce/rust-auxv"
 homepage = "https://bitbucket.org/marshallpierce/rust-auxv"
 repository = "https://bitbucket.org/marshallpierce/rust-auxv"
