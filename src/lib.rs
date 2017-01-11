@@ -28,18 +28,18 @@ pub enum GetauxvalError {
     UnknownError
 }
 
-/// On Linux, you will probably want `NativeGetauxvalProvider`. If you're not
+/// On Linux, you will probably want `NativeGetauxval`. If you're not
 /// on Linux but want to use the same `getauxv`-based logic, you could
-/// conditionally use `NotFoundGetauxvalProvider` instead.
+/// conditionally use `NotFoundGetauxval` instead.
 ///
 /// ```
-/// use auxv::{GetauxvalProvider, AT_HWCAP};
+/// use auxv::{Getauxval, AT_HWCAP};
 /// #[cfg(target_os="linux")]
-/// use auxv::NativeGetauxvalProvider;
+/// use auxv::NativeGetauxval;
 /// #[cfg(not(target_os="linux"))]
-/// use auxv::NotFoundGetauxvalProvider;
+/// use auxv::NotFoundGetauxval;
 ///
-/// fn do_stuff_with_getauxval<G: GetauxvalProvider>(g: G) {
+/// fn do_stuff_with_getauxval<G: Getauxval>(g: G) {
 ///     // naturally, don't unwrap() in real code
 ///     let hwcap = g.getauxval(AT_HWCAP).unwrap();
 ///     // poke around in hwcap, etc
@@ -47,27 +47,27 @@ pub enum GetauxvalError {
 ///
 /// #[cfg(target_os="linux")]
 /// fn detect_hardware() {
-///     let getauxval = NativeGetauxvalProvider {};
+///     let getauxval = NativeGetauxval {};
 ///     do_stuff_with_getauxval(getauxval);
 /// }
 ///
 /// #[cfg(not(target_os="linux"))]
 /// fn detect_hardware() {
-///     let getauxval = NotFoundGetauxvalProvider {};
+///     let getauxval = NotFoundGetauxval {};
 ///     do_stuff_with_getauxval(getauxval);
 /// }
 /// ```
-pub trait GetauxvalProvider {
+pub trait Getauxval {
     /// Look up an entry in the auxiliary vector. See getauxval(3) in glibc.
     fn getauxval(&self, auxv_type: c_ulong) -> Result<c_ulong, GetauxvalError>;
 }
 
 /// A stub implementation that always returns NotFound.
 /// This can be used when you want to use something reasonable (i.e. won't crash)
-/// that's not `NativeGetauxvalProvider` on non-Linux systems.
-pub struct NotFoundGetauxvalProvider {}
+/// that's not `NativeGetauxval` on non-Linux systems.
+pub struct NotFoundGetauxval {}
 
-impl GetauxvalProvider for NotFoundGetauxvalProvider {
+impl Getauxval for NotFoundGetauxval {
     fn getauxval(&self, _: c_ulong) -> Result<c_ulong, GetauxvalError> {
         Err(GetauxvalError::NotFound)
     }
@@ -80,10 +80,10 @@ impl GetauxvalProvider for NotFoundGetauxvalProvider {
 /// `getauxval` was first exposed in glibc 2.16 (released in 2012), so
 /// ancient glibc systems will sto;; get `FunctionNotAvailable`.
 #[cfg(target_os="linux")]
-pub struct NativeGetauxvalProvider {}
+pub struct NativeGetauxval {}
 
 #[cfg(target_os="linux")]
-impl GetauxvalProvider for NativeGetauxvalProvider {
+impl Getauxval for NativeGetauxval {
     /// Returns Some if the native invocation succeeds and the requested type was
     /// found, otherwise None.
     fn getauxval(&self, auxv_type: c_ulong)

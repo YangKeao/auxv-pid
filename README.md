@@ -34,9 +34,9 @@ For most people, probably the most interesting data in auxv is for `AT_HWCaP` or
 
 #### Using `getauxval`
 
-Because the underlying `getauxval` C function is weakly linked, and only available on Linux, access to it is done via the trait `GetauxvalProvider` to provide some indirection. On `target_os="linux"`, the struct `NativeGetauxvalProvider` will be available, and that will call through to `getauxval` if it is available and return an appropriate error if it is not.
+Because the underlying `getauxval` C function is weakly linked, and only available on Linux, access to it is done via the trait `Getauxval` to provide some indirection. On `target_os="linux"`, the struct `NativeGetauxval` will be available, and that will call through to `getauxval` if it is available and return an appropriate error if it is not.
 
-On all OSs, you can use `NotFoundGetauxvalProvider`. It (surprise!) always returns the error that indicates that the requested type was not found. Of course, you can also use any other stub implementation of the trait that you choose for testing, etc.
+On all OSs, you can use `NotFoundGetauxval`. It (surprise!) always returns the error that indicates that the requested type was not found. Of course, you can also use any other stub implementation of the trait that you choose for testing, etc.
 
 #### Using procfs
 

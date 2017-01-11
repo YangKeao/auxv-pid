@@ -6,12 +6,12 @@ extern crate byteorder;
 extern crate libc;
 
 #[cfg(target_os = "linux")]
-use auxv::{GetauxvalError, GetauxvalProvider, NativeGetauxvalProvider, AT_HWCAP};
+use auxv::{GetauxvalError, Getauxval, NativeGetauxval, AT_HWCAP};
 
 #[test]
 #[cfg(target_os = "linux")]
 fn test_getauxv_hwcap_linux_finds_hwcap() {
-    let native_getauxval = NativeGetauxvalProvider {};
+    let native_getauxval = NativeGetauxval {};
     let result = native_getauxval.getauxval(AT_HWCAP);
     // there should be SOMETHING in the value
     assert!(result.unwrap() > 0);
@@ -20,7 +20,7 @@ fn test_getauxv_hwcap_linux_finds_hwcap() {
 #[test]
 #[cfg(target_os = "linux")]
 fn test_getauxv_hwcap_linux_doesnt_find_bogus_type() {
-    let native_getauxval = NativeGetauxvalProvider {};
+    let native_getauxval = NativeGetauxval {};
 
     // AT_NULL aka 0 is effectively the EOF for auxv, so it's never a valid type
     assert_eq!(GetauxvalError::NotFound, native_getauxval.getauxval(0).unwrap_err());
