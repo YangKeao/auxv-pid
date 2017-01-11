@@ -20,7 +20,7 @@ More info on the auxiliary vector:
 First, add to your `Cargo.toml`:
 
 ```toml
-auxv = "0.1.0"
+auxv = "0.2.0"
 ```
 
 There are two ways to access the auxiliary vector:
@@ -34,9 +34,9 @@ For most people, probably the most interesting data in auxv is for `AT_HWCaP` or
 
 #### Using `getauxval`
 
-Because the underlying `getauxval` C function is weakly linked, and only available on Linux, access to it is done via the trait `Getauxval` to provide some indirection. On `target_os="linux"`, the struct `NativeGetauxval` will be available, and that will call through to `getauxval` if it is available and return an appropriate error if it is not.
+Because the underlying `getauxval` C function is weakly linked, and only available on Linux, access to it is done via the trait `Getauxval` to provide some indirection. On `target_os="linux"`, the struct `NativeGetauxval` will be available, and that will call through to `getauxval` if it is available and return an appropriate error if it is not. That means it should be safe to try it if you're not sure your glibc has the function, etc.
 
-On all OSs, you can use `NotFoundGetauxval`. It (surprise!) always returns the error that indicates that the requested type was not found. Of course, you can also use any other stub implementation of the trait that you choose for testing, etc.
+On all OSs, if you want a no-op sort of implementation (for use on non-Linux OSs, etc), you can use `NotFoundGetauxval`. It (surprise!) always returns the error that indicates that the requested type was not found. Of course, you can also use write your own stub implementation of the trait for testing.
 
 #### Using procfs
 
