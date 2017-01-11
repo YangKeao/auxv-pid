@@ -1,4 +1,4 @@
-![](https://img.shields.io/crates/v/auxv.svg) ![](https://docs.rs/auxv/badge.svg)
+![https://crates.io/crates/auxv](https://img.shields.io/crates/v/auxv.svg) ![https://docs.rs/auxv/](https://docs.rs/auxv/badge.svg)
 
 ### Just what is the auxiliary vector?
 
