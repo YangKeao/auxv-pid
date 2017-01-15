@@ -3,21 +3,16 @@ name = "auxv"
 version = "0.2.0"
 
 authors = ["Marshall Pierce <marshall@mpierce.org>"]
-description = "Access the Linux auxiliary vector (aka auxv or auxval)."
+description = "Access the ELF auxiliary vector (aka auxv or auxval)."
 documentation = "https://bitbucket.org/marshallpierce/rust-auxv"
 homepage = "https://bitbucket.org/marshallpierce/rust-auxv"
 repository = "https://bitbucket.org/marshallpierce/rust-auxv"
 readme = "README.md"
-keywords = ["linux", "auxiliary", "vector", "auxv", "auxval"]
+keywords = ["linux", "unix", "elf", "auxiliary", "vector", "auxv", "auxval"]
 license-file = "LICENSE.txt"
-build = "build.rs"
 
-[dependencies]
+[dev-dependencies]
 byteorder = "1.0.0"
-libc = "0.2.19"
-
-[build-dependencies]
-gcc = "0.3.41"
 libc = "0.2.19"
 
 [features]
