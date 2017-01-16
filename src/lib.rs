@@ -142,69 +142,6 @@ pub type AuxvType = u32;
 #[cfg(target_pointer_width="64")]
 pub type AuxvType = u64;
 
-/// Returns an iterator across the auxv entries.
-#[cfg(not(target_os="windows"))]
-pub unsafe fn iterate_stack_auxv() -> StackAuxvIter {
-    StackAuxvIter {
-        auxv_type_ptr: get_auxv_ptr()
-    }
-}
-
-/// An iterator across auxv pairs from crawling the ELF stack.
-pub struct StackAuxvIter {
-    auxv_type_ptr: *const AuxvType,
-}
-
-impl Iterator for StackAuxvIter {
-    type Item = AuxvPair;
-    fn next(&mut self) -> Option<Self::Item> {
-        unsafe {
-            if *self.auxv_type_ptr == 0 {
-                // found AT_NULL, exit
-                return None;
-            };
-
-            let key = *self.auxv_type_ptr;
-            let value = *(self.auxv_type_ptr.offset(1));
-
-            self.auxv_type_ptr = self.auxv_type_ptr.offset(2);
-
-            Some(AuxvPair {
-                key: key,
-                value: value
-            })
-        }
-    }
-}
-
-extern "C" {
-    // pointer to start of env
-    // env is a sequence of pointers to "NAME=value" strings. However, we don't
-    // care that they're strings; we only care that they're pointers, and all
-    // pointers are the same size, so we just use u8 as a dummy type here.
-    // On windows it's `_environ` and they don't use ELF anyway.
-    #[cfg(not(target_os="windows"))]
-    static environ: *const *const u8;
-}
-
-/// returns a pointer to the first entry in the auxv table
-/// (specifically, the type in the first type / value pair)
-#[cfg(not(target_os="windows"))]
-unsafe fn get_auxv_ptr() -> *const AuxvType {
-    let mut env_entry_ptr = environ;
-
-    while !(*env_entry_ptr).is_null() {
-        // skip the pointers to environment strings
-        env_entry_ptr = env_entry_ptr.offset(1);
-    };
-
-    // env_entry_ptr now points at the null entry after the environment listing
-    // advance it one more to point at first entry of auxv
-    env_entry_ptr = env_entry_ptr.offset(1);
-
-    return std::mem::transmute::<*const *const u8, *const AuxvType>(env_entry_ptr);
-}
-
 // from [linux]/include/uapi/linux/auxvec.h. First 32 bits of HWCAP
 // even on platforms where unsigned long is 64 bits.
 pub const AT_HWCAP: AuxvType = 16;
@@ -217,55 +154,6 @@ pub struct AuxvPair {
     pub value: AuxvType,
 }
 
-pub mod procfs;
-
 pub mod getauxval;
-
-#[cfg(test)]
-mod tests {
-    extern crate libc;
-
-    use super::*;
-    use super::procfs::iterate_procfs_auxv;
-
-    #[test]
-    #[cfg(target_os="linux")]
-    fn auxv_via_stack_equals_auxv_via_procfs() {
-        let procfs: Vec<AuxvPair> = iterate_procfs_auxv().unwrap()
-            .map(|r| r.unwrap())
-            .collect();
-        unsafe {
-            let stack: Vec<AuxvPair> = iterate_stack_auxv()
-                .collect();
-            assert_eq!(procfs, stack);
-        }
-    }
-
-    #[test]
-    #[cfg(any(target_os="linux", target_os="freebsd"))]
-    fn test_iterate_stack_finds_hwcap() {
-        unsafe {
-            let iter = iterate_stack_auxv();
-
-            assert_eq!(1, iter.filter(|p| p.key == AT_HWCAP).count());
-        }
-    }
-
-    #[test]
-    #[cfg(target_os="linux")]
-    fn test_stack_auxv_uid_matches_libc_uid() {
-        // AT_UID not populated on FreeBSD, so this is linux only
-        unsafe {
-            // AT_UID = 11
-            let auxv_uid = iterate_stack_auxv().filter(|p| p.key == 11)
-                .map(|p| p.value)
-                .next()
-                .unwrap();
-
-            let libc_uid = libc::getuid();
-            assert_eq!(libc_uid as u64, auxv_uid as u64);
-        }
-    }
-
-
-}
+pub mod procfs;
+pub mod stack;

@@ -5,7 +5,7 @@ fn main() {
     #[cfg(not(target_os = "windows"))]
     unsafe {
         println!("Auxv before modifying environ:");
-        for pair in auxv::iterate_stack_auxv() {
+        for pair in auxv::stack::iterate_stack_auxv() {
             println!("{}\t{}", pair.key, pair.value);
         };
 
@@ -13,7 +13,7 @@ fn main() {
         std::env::set_var("QWERTY12345", "ASDF");
 
         println!("Auxv after");
-        for pair in auxv::iterate_stack_auxv() {
+        for pair in auxv::stack::iterate_stack_auxv() {
             println!("{}\t{}", pair.key, pair.value);
         };
     };
