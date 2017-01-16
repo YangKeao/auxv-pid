@@ -1,6 +1,6 @@
 [package]
 name = "auxv"
-version = "0.2.0"
+version = "0.3.0"
 
 authors = ["Marshall Pierce <marshall@mpierce.org>"]
 description = "Access the ELF auxiliary vector (aka auxv or auxval)."
@@ -8,7 +8,7 @@ documentation = "https://docs.rs/auxv/"
 homepage = "https://bitbucket.org/marshallpierce/rust-auxv"
 repository = "https://bitbucket.org/marshallpierce/rust-auxv"
 readme = "README.md"
-keywords = ["linux", "unix", "elf", "auxiliary", "vector", "auxv", "auxval"]
+keywords = ["linux", "unix", "elf", "stack", "auxiliary", "vector", "auxv", "auxval"]
 license-file = "LICENSE.txt"
 build = "build.rs"
 
