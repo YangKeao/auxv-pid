@@ -7,10 +7,10 @@ The auxiliary vector is some memory near the start of a running ELF program's st
 If you're on a system with ELF executables (Linux, FreeBSD, other Unixes), run the example that shows its own auxv keys and values:
 
 ```
-cargo run --example show_auxv
+cargo run --example elf_stack_show_auxv
 ```
 
-If you're unsure about a particular system, clone this repo and run the example listed at the top of the README. On Linux, FreeBSD, and other ELF systems, it should print a short table of a dozen or two numbers. On macOS, it tends to produce garbage numbers for a while before mercifully exiting normally. On Windows, the function is not available because their names are not POSIX compatible so it wouldn't even compile, so the example prints nothing.
+If you're unsure about whether a particular system will work, clone this repo and run the example listed at the top of the README. On Linux, FreeBSD, and other ELF systems, it should print a short table of a dozen or two numbers. On macOS, it tends to produce garbage numbers for a while before mercifully exiting normally. On Windows, the function is not available because their names are not POSIX compatible so it wouldn't even compile, so the example prints nothing.
 
 The keys used in the aux vector are defined in various header files and typically prefixed with `AT_`. Some of the data there is not available from any other source, like `AT_HWCAP` and `AT_HWCAP2`. These expose bit vectors of architecture-dependent hardware capability information. On ARM, for instance, the bit `1 << 12` in the value for `AT_HWCAP` will be set if the CPU supports NEON, and `1 << 3` will be set in the value for `AT_HWCAP2` if the CPU supports SHA-256 acceleration. Handy, if you're doing that sort of thing.
 
