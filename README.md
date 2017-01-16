@@ -4,7 +4,7 @@
 Add the dependency to your `Cargo.toml`:
 
 ```toml
-auxv = "0.3.0"
+auxv = "0.3.1"
 ```
 
 See the [documentation](https://docs.rs/auxv/).

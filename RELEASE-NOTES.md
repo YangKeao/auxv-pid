@@ -1,4 +1,4 @@
-### 0.3.0
+### 0.3.1
 
 - Split each way of accessing auxv into its own mod
 - Add `stack` mod for navigating the ELF stack directly from the `environ` pointer
