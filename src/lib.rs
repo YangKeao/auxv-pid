@@ -25,12 +25,14 @@
 //! will be of type `AuxvType`, which will be either `u64` or `u32` depending
 //! on the system's pointer width.
 //!
-//! Here's how you could look for `AT_HWCAP`:
+//! Here's how you could look for `AT_HWCAP` assuming you were only targeting Linux:
 //!
 //! ```
+//! #[cfg(target_os="linux")]
 //! use auxv::{iterate_auxv, AT_HWCAP};
 //!
-//! if cfg!(target_os = "linux") {
+//! #[cfg(target_os="linux")]
+//! fn match_auxv() {
 //!     unsafe {
 //!         match iterate_auxv().filter(|p| p.key == AT_HWCAP).next() {
 //!             Some(p) => println!("Got value {}", p.value),
