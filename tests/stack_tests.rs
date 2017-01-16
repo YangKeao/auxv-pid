@@ -1,8 +1,13 @@
 extern crate auxv;
 extern crate libc;
 
-use auxv::{AuxvPair, AT_HWCAP};
+#[cfg(any(target_os="linux", target_os="freebsd"))]
+use auxv::AT_HWCAP;
+#[cfg(target_os="linux")]
+use auxv::AuxvPair;
+#[cfg(any(target_os="linux", target_os="freebsd"))]
 use auxv::stack::*;
+#[cfg(target_os="linux")]
 use auxv::procfs::iterate_procfs_auxv;
 
 #[test]

@@ -26,6 +26,7 @@
 //! available because their names are not POSIX compatible so it wouldn't even compile, and so the
 //! example prints nothing.
 
+#[cfg(not(target_os="windows"))]
 use std;
 
 use super::{AuxvPair, AuxvType};

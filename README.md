@@ -1,4 +1,4 @@
-[![](https://img.shields.io/crates/v/auxv.svg)](https://crates.io/crates/auxv) [![](https://docs.rs/auxv/badge.svg)](https://docs.rs/auxv/)
+[![](https://img.shields.io/crates/v/auxv.svg)](https://crates.io/crates/auxv) [![](https://docs.rs/auxv/badge.svg)](https://docs.rs/auxv/) [![Build Status](https://semaphoreci.com/api/v1/marshallpierce/rust-auxv/branches/master/shields_badge.svg)](https://semaphoreci.com/marshallpierce/rust-auxv)
 
 
 Add the dependency to your `Cargo.toml`:

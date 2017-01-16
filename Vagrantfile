@@ -18,8 +18,9 @@ Vagrant.configure("2") do |config|
 
     box.vm.provision "shell", inline: <<-SHELL
       apt-get update
-      apt-get install -y curl build-essential
+      apt-get install -y curl build-essential gcc-multilib
       sudo -iu vagrant bash -c 'curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable -y'
+      sudo -iu vagrant bash -c 'rustup target add i686-unknown-linux-gnu'
     SHELL
 
   end
@@ -38,8 +39,9 @@ Vagrant.configure("2") do |config|
     box.vm.box = "box-cutter/ubuntu1610"
     box.vm.provision "shell", inline: <<-SHELL
       apt-get update
-      apt-get install -y curl build-essential
+      apt-get install -y curl build-essential gcc-multilib
       sudo -iu vagrant bash -c 'curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable -y'
+      sudo -iu vagrant bash -c 'rustup target add i686-unknown-linux-gnu'
     SHELL
 
   end
@@ -74,10 +76,6 @@ Vagrant.configure("2") do |config|
       vb.memory = 4096
       vb.gui = true
     end
-    box.vm.provision "shell", inline: <<-SHELL
-      curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable -y
-    SHELL
-
   end
 
   # Once the box starts, download xcode.
