@@ -39,6 +39,9 @@
 //!     }
 //! }
 //! ```
+//!
+//! `iterate_auxv` is not available on Windows since they use a different (non-POSIX)
+//! environment pointer name. And, of course, it wouldn't work even if it compiled.
 
 // The type/value pairs in auxv are either Elf32_auxv_t or Elf64_auxv_t.
 // If this is an LP64 system (a "long" is 64 bits) then it seems that
@@ -54,6 +57,7 @@ pub type AuxvType = u32;
 pub type AuxvType = u64;
 
 /// Returns an iterator across the auxv entries.
+#[cfg(not(target_os="windows"))]
 pub unsafe fn iterate_auxv() -> StackAuxvIter {
     StackAuxvIter {
         auxv_type_ptr: get_auxv_ptr()
@@ -91,12 +95,14 @@ extern "C" {
     // env is a sequence of pointers to "NAME=value" strings. However, we don't
     // care that they're strings; we only care that they're pointers, and all
     // pointers are the same size, so we just use u8 as a dummy type here.
-
+    // On windows it's `_environ` and they don't use ELF anyway.
+    #[cfg(not(target_os="windows"))]
     static environ: *const *const u8;
 }
 
 /// returns a pointer to the first entry in the auxv table
 /// (specifically, the type in the first type / value pair)
+#[cfg(not(target_os="windows"))]
 unsafe fn get_auxv_ptr() -> *const AuxvType {
     let mut env_entry_ptr = environ;
 
