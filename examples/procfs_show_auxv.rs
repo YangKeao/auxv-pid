@@ -1,7 +1,7 @@
 extern crate auxv;
 
 fn main() {
-    match auxv::iterate_procfs_auxv() {
+    match auxv::procfs::iterate_procfs_auxv() {
         Ok(iter) => {
             for pair_res in iter {
                 match pair_res {
