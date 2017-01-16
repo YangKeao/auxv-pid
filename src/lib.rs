@@ -1,3 +1,45 @@
+//! # Safety
+//! Only use this code when all of the following are satisfied:
+//!
+//! - In an ELF binary. In practice, this means Linux, FreeBSD, and other Unix
+//!   variants (but not macOS).
+//! - No other threads are manipulating the environment (setenv, putenv, or
+//!   equivalent). In practice this means do it at startup before spawning
+//!   any other threads.
+//!
+//! This works by navigating the stack at runtime to find the auxv
+//! entries, so it is `unsafe`. **It's up to you to only invoke it in binaries
+//! that are ELF.** In other words, only search for auxv entries on Linux,
+//! FreeBSD, or other systems that you have verified to be compatible. It
+//! will probably segfault or produce bogus output when run on non-ELF systems.
+//!
+//! Rust's environment manipulation code has a mutex to make `set_var` and `var`
+//! thread safe, but this code can't access that mutex, so you are not protected
+//! from shooting yourself in the foot even when using pure Rust. Also, that mutex
+//! doesn't help against other C code screwing things up anyway. This code works
+//! by navigating the stack starting at the environment, so it needs the environment
+//! data to be quiescent in order to safely traverse it.
+//!
+//! The sole public function is `iterate_auxv`. It iterates across
+//! the entries, exposing them via `AuxvPair`. The two fields in `AuxvPair`
+//! will be of type `AuxvType`, which will be either `u64` or `u32` depending
+//! on the system's pointer width.
+//!
+//! Here's how you could look for `AT_HWCAP`:
+//!
+//! ```
+//! use auxv::{iterate_auxv, AT_HWCAP};
+//!
+//! if cfg!(target_os = "linux") {
+//!     unsafe {
+//!         match iterate_auxv().filter(|p| p.key == AT_HWCAP).next() {
+//!             Some(p) => println!("Got value {}", p.value),
+//!             None => println!("No HWCAP")
+//!         }
+//!     }
+//! }
+//! ```
+
 // The type/value pairs in auxv are either Elf32_auxv_t or Elf64_auxv_t.
 // If this is an LP64 system (a "long" is 64 bits) then it seems that
 // these entries will be Elf64_auxv_t (2x 64 bits). Fortunately,
@@ -7,21 +49,19 @@
 // (e.g. AT_BASe and AT_EXECFN), so value has to be able to hold a
 // pointer, and the type is always the same width as the value.
 #[cfg(target_pointer_width="32")]
-pub type Type = u32;
+pub type AuxvType = u32;
 #[cfg(target_pointer_width="64")]
-pub type Type = u64;
+pub type AuxvType = u64;
 
-/// Iterate across auxv entries by crawling the ELF stack.
-pub fn iterate_stack_auxv() -> StackAuxvIter {
-    unsafe {
-        StackAuxvIter {
-            auxv_type_ptr: get_auxv_ptr()
-        }
+/// Returns an iterator across the auxv entries.
+pub unsafe fn iterate_auxv() -> StackAuxvIter {
+    StackAuxvIter {
+        auxv_type_ptr: get_auxv_ptr()
     }
 }
 
 pub struct StackAuxvIter {
-    auxv_type_ptr: *const Type,
+    auxv_type_ptr: *const AuxvType,
 }
 
 impl Iterator for StackAuxvIter {
@@ -50,14 +90,14 @@ extern "C" {
     // pointer to start of env
     // env is a sequence of pointers to "NAME=value" strings. However, we don't
     // care that they're strings; we only care that they're pointers, and all
-    // pointers are the same size, so we just use u8 as a dummy time here.
+    // pointers are the same size, so we just use u8 as a dummy type here.
 
     static environ: *const *const u8;
 }
 
 /// returns a pointer to the first entry in the auxv table
 /// (specifically, the type in the first type / value pair)
-unsafe fn get_auxv_ptr() -> *const Type {
+unsafe fn get_auxv_ptr() -> *const AuxvType {
     let mut env_entry_ptr = environ;
 
     while !(*env_entry_ptr).is_null() {
@@ -69,20 +109,19 @@ unsafe fn get_auxv_ptr() -> *const Type {
     // advance it one more to point at first entry of auxv
     env_entry_ptr = env_entry_ptr.offset(1);
 
-    return std::mem::transmute::<*const *const u8, *const Type>(env_entry_ptr);
+    return std::mem::transmute::<*const *const u8, *const AuxvType>(env_entry_ptr);
 }
 
 // from [linux]/include/uapi/linux/auxvec.h. First 32 bits of HWCAP
 // even on platforms where unsigned long is 64 bits.
-pub const AT_HWCAP: Type = 16;
-pub const AT_HWCAP2: Type = 26;
+pub const AT_HWCAP: AuxvType = 16;
+pub const AT_HWCAP2: AuxvType = 26;
 
 #[derive(Debug, PartialEq)]
 pub struct AuxvPair {
-    pub key: Type,
-    pub value: Type,
+    pub key: AuxvType,
+    pub value: AuxvType,
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -95,9 +134,13 @@ mod tests {
     use std::vec::Vec;
     use std;
 
-    use super::{AT_HWCAP, iterate_stack_auxv, Type, AuxvPair};
+    #[cfg(any(target_os="linux", target_os="freebsd"))]
+    use super::{AT_HWCAP, iterate_auxv};
+    use super::{AuxvType, AuxvPair};
 
-    use tests::byteorder::{ByteOrder, LittleEndian, NativeEndian, ReadBytesExt};
+    use tests::byteorder::{ByteOrder, LittleEndian, ReadBytesExt};
+    #[cfg(target_os="linux")]
+    use tests::byteorder::NativeEndian;
 
     #[test]
     #[cfg(target_os="linux")]
@@ -105,16 +148,37 @@ mod tests {
         let procfs: Vec<AuxvPair> = iterate_procfs_auxv().unwrap()
             .map(|r| r.unwrap())
             .collect();
-        let stack: Vec<AuxvPair> = iterate_stack_auxv()
-            .collect();
-        assert_eq!(procfs, stack);
+        unsafe {
+            let stack: Vec<AuxvPair> = iterate_auxv()
+                .collect();
+            assert_eq!(procfs, stack);
+        }
     }
 
     #[test]
+    #[cfg(any(target_os="linux", target_os="freebsd"))]
     fn test_iterate_stack_finds_hwcap() {
-        let iter = iterate_stack_auxv();
+        unsafe {
+            let iter = iterate_auxv();
 
-        assert_eq!(1, iter.filter(|p| p.key == AT_HWCAP).count());
+            assert_eq!(1, iter.filter(|p| p.key == AT_HWCAP).count());
+        }
+    }
+
+    #[test]
+    #[cfg(target_os="linux")]
+    fn test_stack_auxv_uid_matches_libc_uid() {
+        // AT_UID not populated on FreeBSD, so this is linux only
+        unsafe {
+            // AT_UID = 11
+            let auxv_uid = iterate_auxv().filter(|p| p.key == 11)
+                .map(|p| p.value)
+                .next()
+                .unwrap();
+
+            let libc_uid = libc::getuid();
+            assert_eq!(libc_uid as u64, auxv_uid as u64);
+        }
     }
 
     #[test]
@@ -129,7 +193,7 @@ mod tests {
 
     #[test]
     #[cfg(target_pointer_width="64")]
-    fn test_iterate_auxv_real_linux_x64() {
+    fn test_iterate_auxv_path_real_linux_x64() {
         let path = Path::new("src/test-data/linux-x64-i7-6850k.auxv");
         let mut iter = iterate_path::<LittleEndian>(path).unwrap();
         // x86 AT_SYSINFO_EHDR
@@ -173,7 +237,7 @@ mod tests {
 
     #[test]
     #[cfg(target_pointer_width="32")]
-    fn test_iterate_auxv_virtualbox_linux_x86() {
+    fn test_iterate_auxv_path_virtualbox_linux_x86() {
         let path = Path::new("src/test-data/macos-virtualbox-linux-x86-4850HQ.auxv");
         let mut iter = iterate_path::<LittleEndian>(path).unwrap();
         // x86 AT_SYSINFO
@@ -219,7 +283,7 @@ mod tests {
 
     #[test]
     #[cfg(target_pointer_width="64")]
-    fn test_iterate_auxv_real_linux_no_trailing_null() {
+    fn test_iterate_auxv_path_real_linux_no_trailing_null() {
         let path = Path::new("src/test-data/linux-x64-i7-6850k-mangled-no-trailing-null.auxv");
         let mut iter = iterate_path::<LittleEndian>(path).unwrap();
         assert_eq!(AuxvPair { key: 33, value: 140724395515904 }, iter.next().unwrap().unwrap());
@@ -234,7 +298,7 @@ mod tests {
 
     #[test]
     #[cfg(target_pointer_width="64")]
-    fn test_iterate_auxv_real_linux_no_value_in_trailing_null() {
+    fn test_iterate_auxv_path_real_linux_no_value_in_trailing_null() {
         let path = Path::new("src/test-data/linux-x64-i7-6850k-mangled-no-value-in-trailing-null.auxv");
         let mut iter = iterate_path::<LittleEndian>(path).unwrap();
         assert_eq!(AuxvPair { key: 33, value: 140724395515904 }, iter.next().unwrap().unwrap());
@@ -248,7 +312,7 @@ mod tests {
 
     #[test]
     #[cfg(target_pointer_width="64")]
-    fn test_iterate_auxv_real_linux_truncated_entry() {
+    fn test_iterate_auxv_path_real_linux_truncated_entry() {
         let path = Path::new("src/test-data/linux-x64-i7-6850k-mangled-truncated-entry.auxv");
         let mut iter = iterate_path::<LittleEndian>(path).unwrap();
         // x86 AT_SYSINFO_EHDR
@@ -263,7 +327,7 @@ mod tests {
 
     #[test]
     #[cfg(target_pointer_width="64")]
-    fn test_parse_auxv_virtualbox_linux_32bit_in_64bit_mode_invalidformat() {
+    fn test_parse_auxv_path_virtualbox_linux_32bit_in_64bit_mode_invalidformat() {
         let path = Path::new("src/test-data/macos-virtualbox-linux-x86-4850HQ.auxv");
         let mut iter = iterate_path::<LittleEndian>(path).unwrap();
 
@@ -276,7 +340,6 @@ mod tests {
         assert_eq!(ProcfsAuxvError::InvalidFormat, iter.next().unwrap().unwrap_err());
     }
 
-
     #[derive(Debug, PartialEq)]
     pub enum ProcfsAuxvError {
         /// an io error was encountered
@@ -286,6 +349,7 @@ mod tests {
     }
 
     /// procfs auxv impl as a sanity check for the stack crawling impl
+    #[cfg(target_os="linux")]
     fn iterate_procfs_auxv() -> Result<ProcfsAuxvIter<NativeEndian, File>, ProcfsAuxvError> {
         iterate_path::<NativeEndian>(&Path::new("/proc/self/auxv"))
     }
@@ -304,7 +368,7 @@ mod tests {
             .map_err(|_| ProcfsAuxvError::IoError)
             .map(|f| BufReader::new(f))?;
 
-        let pair_size = 2 * std::mem::size_of::<Type>();
+        let pair_size = 2 * std::mem::size_of::<AuxvType>();
         let buf: Vec<u8> = Vec::with_capacity(pair_size);
 
         Ok(ProcfsAuxvIter::<B, File> {
@@ -371,10 +435,10 @@ mod tests {
         }
     }
 
-    fn read_long<B: ByteOrder> (reader: &mut Read) -> std::io::Result<Type>{
-        match std::mem::size_of::<Type>() {
-            4 => reader.read_u32::<B>().map(|u| u as Type),
-            8 => reader.read_u64::<B>().map(|u| u as Type),
+    fn read_long<B: ByteOrder> (reader: &mut Read) -> std::io::Result<AuxvType>{
+        match std::mem::size_of::<AuxvType>() {
+            4 => reader.read_u32::<B>().map(|u| u as AuxvType),
+            8 => reader.read_u64::<B>().map(|u| u as AuxvType),
             x => panic!("Unexpected type width: {}", x)
         }
     }
