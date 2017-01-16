@@ -4,7 +4,7 @@ extern crate auxv;
 fn main() {
     #[cfg(not(target_os="windows"))]
     unsafe {
-        for pair in auxv::iterate_auxv() {
+        for pair in auxv::iterate_stack_auxv() {
             println!("{}\t{}", pair.key, pair.value);
         }
     }
