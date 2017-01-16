@@ -1,3 +1,19 @@
+//! Read auxv entries via Linux procfs.
+//!
+//! Since it's just doing file I/O and not odd linkage tricks, the code to work with procfs is
+//! available on all OSs but of course will return an error on non-Linux since it won't be able to
+//! find `/proc/self/auxv` (or anything else in `/proc`).
+//!
+//! If you want a convenient way to query for just a handful of keys, `search_procfs_auxv` is a
+//! good choice. You provide a slice of keys to look for, and it builds a map of key
+//! to value for the keys you specify.
+//!
+//! If, on the other hand, you want to inspect everything in the aux vector, `iterate_procfs_auxv`
+//! is what you want. It will let you iterate over every key/value pair in the aux vector. A minor
+//! wrinkle is that there are two layers of `Result`: one for around the initial `Iterator`, and
+//! another around each key/value pair. That's just the way I/O is...
+
+
 extern crate byteorder;
 
 use std::collections::HashMap;
@@ -11,12 +27,12 @@ use self::byteorder::{ByteOrder, ReadBytesExt, NativeEndian};
 
 use super::{AuxvPair, AuxvType};
 
-/// Read from the procfs auxv file and look for the specified types.
+/// Read from the procfs auxv file and look for the specified keys.
 ///
-/// aux_types: the types to look for
-/// returns a map of types to values, only including entries for types that were
+/// keys: the keys to look for
+/// returns a map of keys to values, only including entries for keys that were
 /// requested that also had values in the aux vector
-pub fn search_procfs_auxv(aux_types: &[AuxvType])
+pub fn search_procfs_auxv(keys: &[AuxvType])
                           -> Result<HashMap<AuxvType, AuxvType>, ProcfsAuxvError> {
     let mut result = HashMap::<AuxvType, AuxvType>::new();
 
@@ -27,7 +43,7 @@ pub fn search_procfs_auxv(aux_types: &[AuxvType])
             Err(e) => return Err(e)
         };
 
-        if aux_types.contains(&pair.key) {
+        if keys.contains(&pair.key) {
             let _ = result.insert(pair.key, pair.value);
         }
     }
@@ -113,7 +129,7 @@ impl<B: ByteOrder, R: Read> Iterator for ProcfsAuxvIter<B, R> {
         }
 
         let mut reader = &self.buf[..];
-        let found_aux_type = match read_long::<B>(&mut reader) {
+        let aux_key = match read_long::<B>(&mut reader) {
             Ok(x) => x,
             Err(_) => return Some(Err(ProcfsAuxvError::InvalidFormat))
         };
@@ -123,13 +139,13 @@ impl<B: ByteOrder, R: Read> Iterator for ProcfsAuxvIter<B, R> {
         };
 
         // AT_NULL (0) signals the end of auxv
-        if found_aux_type == 0 {
+        if aux_key == 0 {
             return None;
         }
 
         self.keep_going = true;
         Some(Ok(AuxvPair {
-            key: found_aux_type,
+            key: aux_key,
             value: aux_val
         }))
     }
@@ -268,7 +284,7 @@ mod tests {
         // skip the middle ones, one fewer this time
         let mut skipped = iter.skip(15);
         assert_eq!(AuxvPair { key: 31, value: 140724393852911 }, skipped.next().unwrap().unwrap());
-        // entry for type 15 is missing its value
+        // entry for key 15 is missing its value
         assert_eq!(ProcfsAuxvError::InvalidFormat, skipped.next().unwrap().unwrap_err());
         assert_eq!(None, skipped.next());
     }
