@@ -1,3 +1,7 @@
+### 0.3.2
+
+- Fix unused warnings on non-Linux OSs
+
 ### 0.3.1
 
 - Split each way of accessing auxv into its own mod
