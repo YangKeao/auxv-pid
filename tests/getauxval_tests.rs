@@ -6,7 +6,9 @@ extern crate byteorder;
 extern crate libc;
 
 #[cfg(target_os = "linux")]
-use auxv::{GetauxvalError, Getauxval, NativeGetauxval, AT_HWCAP};
+use auxv::getauxval::{GetauxvalError, Getauxval, NativeGetauxval};
+#[cfg(target_os = "linux")]
+use auxv::AT_HWCAP;
 
 #[test]
 #[cfg(target_os = "linux")]

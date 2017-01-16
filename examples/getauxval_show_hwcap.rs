@@ -1,10 +1,11 @@
 extern crate auxv;
 
-use auxv::{Getauxval, AT_HWCAP};
+use auxv::AT_HWCAP;
+use auxv::getauxval::Getauxval;
 #[cfg(target_os="linux")]
-use auxv::NativeGetauxval;
+use auxv::getauxval::NativeGetauxval;
 #[cfg(not(target_os="linux"))]
-use auxv::NotAvailableGetauxval;
+use auxv::getauxval::NotAvailableGetauxval;
 
 fn main() {
    show_auxv(); 
