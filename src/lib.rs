@@ -38,11 +38,11 @@
 //!
 //! Unfortunately, there is no one best option for how to access the aux vector.
 //!
-//! - [`getauxval(3)`](https://linux.die.net/man/3/getauxval) is available in glibc 2.16+ and Bionic
-//!   (Android's libc) since 2013. Since it is a non-standard extension, if you're not using those
-//!   libc implementations (e.g. you're using musl, uclibc, etc), this will not be available. Also,
-//!   if you're on glibc older than 2.19, or Bionic before March 2015, `getauxval` is unable to
-//!   express the concept of "not found" and will instead "find" the value 0.
+//! - [`getauxval(3)`](https://linux.die.net/man/3/getauxval) is available in glibc 2.16+, Android
+//!   libc (Bionic) since Android 4,3, and musl 1.1.0+. Since it is a non-standard extension, if
+//!   you're not using those libc implementations (e.g. you're using musl, uclibc, etc), this will
+//!   not be available. Also, if you're on glibc older than 2.19, or Bionic before March 2015,
+//!   `getauxval` is unable to express the concept of "not found" and will instead "find" the value 0.
 //! - `/proc/self/auxv` exposes the contents of the aux vector, but it only exists on Linux.
 //!   Furthermore, the OS may be configured to not allow access to it (see `proc(5)`).
 //! - Navigating the ELF stack layout manually is also (sometimes) possible. There isn't a
