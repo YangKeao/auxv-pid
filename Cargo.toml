@@ -9,6 +9,7 @@ homepage = "https://bitbucket.org/marshallpierce/rust-auxv"
 repository = "https://bitbucket.org/marshallpierce/rust-auxv"
 readme = "README.md"
 keywords = ["elf", "auxiliary", "vector", "auxv", "auxval"]
+categories = ["os::unix-apis"]
 license-file = "LICENSE.txt"
 build = "build.rs"
 
