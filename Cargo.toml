@@ -1,6 +1,6 @@
 [package]
 name = "auxv"
-version = "0.3.2"
+version = "0.3.3"
 
 authors = ["Marshall Pierce <marshall@mpierce.org>"]
 description = "Access the ELF auxiliary vector (aka auxv or auxval)."

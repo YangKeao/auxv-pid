@@ -1,3 +1,8 @@
+### 0.3.3
+
+- Documentation improvements
+- Add crate category
+
 ### 0.3.2
 
 - Fix unused warnings on non-Linux OSs
