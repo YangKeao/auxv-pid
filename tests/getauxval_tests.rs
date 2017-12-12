@@ -21,6 +21,18 @@ fn test_getauxv_hwcap_linux_finds_hwcap() {
 
 #[test]
 #[cfg(target_os = "linux")]
+fn test_getauxv_hwcap_linux_finds_uid_matches_libc() {
+    let native_getauxval = NativeGetauxval {};
+    // AT_UID
+    let result = native_getauxval.getauxval(11);
+    let uid = result.unwrap();
+
+    let libc_uid = unsafe { libc::getuid() };
+    assert_eq!(libc_uid as u64, uid as u64);
+}
+
+#[test]
+#[cfg(target_os = "linux")]
 fn test_getauxv_hwcap_linux_doesnt_find_bogus_key() {
     let native_getauxval = NativeGetauxval {};
 

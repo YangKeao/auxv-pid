@@ -318,5 +318,50 @@ mod tests {
         assert_eq!(ProcfsAuxvError::InvalidFormat, iter.next().unwrap().unwrap_err());
     }
 
+    #[test]
+    #[cfg(target_pointer_width="32")]
+    fn test_iterate_auxv_path_rpi3_arm() {
+        let path = Path::new("src/test-data/linux-rpi3.auxv");
+        let mut iter = iterate_path::<LittleEndian>(path).unwrap();
+        // x86 AT_SYSINFO_EHDR
+        assert_eq!(AuxvPair { key: 33, value: 2122829824 }, iter.next().unwrap().unwrap());
+        // AT_HWCAP
+        assert_eq!(AuxvPair { key: 16, value: 4174038 }, iter.next().unwrap().unwrap());
+        // AT_PAGESZ
+        assert_eq!(AuxvPair { key: 6, value: 4096}, iter.next().unwrap().unwrap());
+        // AT_CLKTCK
+        assert_eq!(AuxvPair { key: 17, value: 100}, iter.next().unwrap().unwrap());
+        // AT_PHDR
+        assert_eq!(AuxvPair { key: 3, value: 65588 }, iter.next().unwrap().unwrap());
+        // AT_PHENT
+        assert_eq!(AuxvPair { key: 4, value: 32 }, iter.next().unwrap().unwrap());
+        // AT_PHNUM
+        assert_eq!(AuxvPair { key: 5, value: 9 }, iter.next().unwrap().unwrap());
+        // AT_BASE
+        assert_eq!(AuxvPair { key: 7, value: 1995284480 }, iter.next().unwrap().unwrap());
+        // AT_FLAGS
+        assert_eq!(AuxvPair { key: 8, value: 0 }, iter.next().unwrap().unwrap());
+        // AT_ENTRY
+        assert_eq!(AuxvPair { key: 9, value: 72569 }, iter.next().unwrap().unwrap());
+        // AT_UID
+        assert_eq!(AuxvPair { key: 11, value: 1000 }, iter.next().unwrap().unwrap());
+        // AT_EUID
+        assert_eq!(AuxvPair { key: 12, value: 1000 }, iter.next().unwrap().unwrap());
+        // AT_GID
+        assert_eq!(AuxvPair { key: 13, value: 1000 }, iter.next().unwrap().unwrap());
+        // AT_EGID
+        assert_eq!(AuxvPair { key: 14, value: 1000 }, iter.next().unwrap().unwrap());
+        // AT_SECURE
+        assert_eq!(AuxvPair { key: 23, value: 0 }, iter.next().unwrap().unwrap());
+        // AT_RANDOM
+        assert_eq!(AuxvPair { key: 25, value: 2122731163 }, iter.next().unwrap().unwrap());
+        // AT_HWCAP2
+        assert_eq!(AuxvPair { key: 26, value: 16 }, iter.next().unwrap().unwrap());
+        // AT_EXECFN
+        assert_eq!(AuxvPair { key: 31, value: 2122731507 }, iter.next().unwrap().unwrap());
+        // AT_PLATFORM
+        assert_eq!(AuxvPair { key: 15, value: 2122731179 }, iter.next().unwrap().unwrap());
+        assert_eq!(None, iter.next());
+    }
 
 }
