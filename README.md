@@ -9,6 +9,10 @@ auxv = "0.3.3"
 
 See the [documentation](https://docs.rs/auxv/).
 
+### Licensing
+
+This library is triple-licensed under COIL, MIT, and Apache 2 licenses.
+
 ### Running tests
 
 Because the width of `unsigned long` varies between architectures, some tests are only run on 64-bit systems and others are only run on 32-bit systems. On a typical x64 Linux system with glibc, the default toolchain will be `x86_64-unknown-linux-gnu`, but you can run the 32-bit tests by installing the 32-bit glibc toolchain:
