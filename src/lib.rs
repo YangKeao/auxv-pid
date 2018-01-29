@@ -17,7 +17,7 @@
 //! SHA-256 acceleration. Handy, if you're doing that sort of thing.
 //!
 //! Other keys are typically not used directly by programs, like `AT_UID`: the real user id is
-//! great and all, but you'd pobably call [`getuid(2)`](https://linux.die.net/man/2/getuid) in C or
+//! great and all, but you'd probably call [`getuid(2)`](https://linux.die.net/man/2/getuid) in C or
 //! `libc::getuid` from Rust instead.
 //!
 //! For most people, probably the most interesting data in auxv is for `AT_HWCAP` or `AT_HWCAP2`
