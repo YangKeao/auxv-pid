@@ -56,8 +56,8 @@ pub fn search_procfs_auxv(keys: &[AuxvType])
 ///
 /// Note that the type iterated over is also a Result because further I/O errors
 /// could occur at any time.
-pub fn iterate_procfs_auxv() -> Result<ProcfsAuxvIter<NativeEndian, File>, ProcfsAuxvError> {
-    iterate_path::<NativeEndian>(&Path::new("/proc/self/auxv"))
+pub fn iterate_procfs_auxv(pid: u32) -> Result<ProcfsAuxvIter<NativeEndian, File>, ProcfsAuxvError> {
+    iterate_path::<NativeEndian>(&Path::new(&format!("/proc/{}/auxv", pid)))
 }
 
 /// Errors from reading `/proc/self/auxv`.
